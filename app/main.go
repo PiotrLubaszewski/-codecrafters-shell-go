@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+    "path/filepath"
 )
 
 // CommandRegistry zarządza rejestracją i wykonywaniem komend
@@ -123,12 +124,22 @@ func handleType(args []string) {
 	}
 }
 
+func handlePwd(args []string) {
+	ex, err := os.Executable()
+    if err != nil {
+        panic(err)
+    }
+    exPath := filepath.Dir(ex)
+    fmt.Println(exPath)
+}
+
 // InitializeRegistry tworzy i inicjalizuje rejestr komend
 func InitializeRegistry() *CommandRegistry {
 	registry := NewCommandRegistry()
 	registry.Register("exit", handleExit)
 	registry.Register("echo", handleEcho)
 	registry.Register("type", handleType)
+	registry.Register("pwd", handlePwd)
 	return registry
 }
 
