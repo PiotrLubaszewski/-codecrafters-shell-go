@@ -17,7 +17,7 @@ var commands = map[string]func(args []string)  {
 }
 
 // Terminates with code/status 0.
-func handleExit(args string[]) {
+func handleExit(args []string) {
 	if len(args) > 1 {
 		exit_code, err := strconv.Atoi(args[1])
 		if err != nil {
