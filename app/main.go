@@ -1,3 +1,4 @@
+
 package main
 
 import (
@@ -117,13 +118,32 @@ func handleType(args []string) {
 	}
 
 	command := args[0]
-	if path, err := exec.LookPath(command); err == nil {
-		fmt.Printf("%s is %s\n", command, path)
+
+	// Sprawdzanie, czy komenda jest wbudowana
+	if isBuiltin(command) {
+		fmt.Printf("%s is a shell builtin\n", command)
 	} else {
-		fmt.Printf("%s: not found\n", command)
+		// Sprawdzanie, czy komenda jest dostępna w systemie
+		if path, err := exec.LookPath(command); err == nil {
+			fmt.Printf("%s is %s\n", command, path)
+		} else {
+			fmt.Printf("%s: not found\n", command)
+		}
 	}
 }
 
+// isBuiltin sprawdza, czy komenda jest wbudowaną komendą powłoki
+func isBuiltin(command string) bool {
+	builtinCommands := []string{"exit", "echo", "type", "pwd"} // Można dodać więcej komend wbudowanych
+	for _, builtin := range builtinCommands {
+		if command == builtin {
+			return true
+		}
+	}
+	return false
+}
+
+// handlePwd obsługuje polecenie pwd
 func handlePwd(args []string) {
 	ex, err := os.Executable()
     if err != nil {
