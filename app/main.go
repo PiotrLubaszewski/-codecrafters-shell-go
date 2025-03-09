@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 )
@@ -17,6 +16,15 @@ type CommandRegistry struct {
 // Nowy rejestr komend
 func NewCommandRegistry() *CommandRegistry {
 	return &CommandRegistry{commands: make(map[string]func([]string))}
+}
+
+// Inicjalizacja rejestru komend
+func InitializeRegistry() *CommandRegistry {
+	registry := NewCommandRegistry()
+	registry.Register("exit", handleExit)
+	registry.Register("echo", handleEcho)
+	registry.Register("type", func(args []string) { handleType(args, registry) })
+	return registry
 }
 
 // Rejestracja nowej komendy
@@ -41,22 +49,21 @@ func (cr *CommandRegistry) Exists(command string) bool {
 
 // Obsługuje wyjście z programu
 func handleExit(args []string) {
+	exitCode := 0
 	if len(args) > 0 {
-		exitCode, err := strconv.Atoi(args[0])
+		var err error
+		exitCode, err = strconv.Atoi(args[0])
 		if err != nil {
 			fmt.Println("Invalid exit code")
 			return
 		}
-		os.Exit(exitCode)
-	} else {
-		os.Exit(0)
 	}
+	os.Exit(exitCode)
 }
 
 // Obsługuje polecenie echo
 func handleEcho(args []string) {
-	msg := strings.Join(args, " ")
-	fmt.Println(msg)
+	fmt.Println(strings.Join(args, " "))
 }
 
 // Obsługuje polecenie type
@@ -67,45 +74,48 @@ func handleType(args []string, registry *CommandRegistry) {
 	}
 
 	command := args[0]
-	var msg string
-
 	if registry.Exists(command) {
-		msg = fmt.Sprintf("%s is a shell builtin", command)
-	} else if path, err := exec.LookPath(command); err == nil {
-		msg = fmt.Sprintf("%s is %s\n", command, path)
+		fmt.Printf("%s is a shell builtin\n", command)
 	} else {
-		msg = fmt.Sprintf("%s: not found", command)
+		fmt.Printf("%s: not found\n", command)
 	}
+}
 
-	fmt.Println(msg)
+// Zarządza interakcją z użytkownikiem
+type Shell struct {
+	registry *CommandRegistry
+}
+
+// Nowa instancja shella
+func NewShell(registry *CommandRegistry) *Shell {
+	return &Shell{registry: registry}
 }
 
 // Wczytuje i zwraca komendę użytkownika
-func readCommandAndArgs() (string, []string, error) {
+func (s *Shell) readCommandAndArgs() (string, []string, error) {
 	fmt.Print("$ ")
 	scanner := bufio.NewScanner(os.Stdin)
 	if !scanner.Scan() {
-		return "$ ", nil, scanner.Err()
+		if err := scanner.Err(); err != nil {
+			return "", nil, err
+		}
+		fmt.Println("\nExit")
+		os.Exit(0)
 	}
 
 	trimmed := strings.TrimSpace(scanner.Text())
 	splitted := strings.Fields(trimmed)
 	if len(splitted) == 0 {
-		return "$ ", nil, nil
+		return "", nil, nil
 	}
 
 	return splitted[0], splitted[1:], nil
 }
 
-func main() {
-	registry := NewCommandRegistry()
-
-	registry.Register("exit", handleExit)
-	registry.Register("echo", handleEcho)
-	registry.Register("type", func(args []string) { handleType(args, registry) })
-
+// Uruchamia pętlę shella
+func (s *Shell) Run() {
 	for {
-		command, args, err := readCommandAndArgs()
+		command, args, err := s.readCommandAndArgs()
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "Error reading input:", err)
 			os.Exit(1)
@@ -113,6 +123,12 @@ func main() {
 		if command == "" {
 			continue
 		}
-		registry.Execute(command, args)
+		s.registry.Execute(command, args)
 	}
+}
+
+func main() {
+	registry := InitializeRegistry()
+	shell := NewShell(registry)
+	shell.Run()
 }
