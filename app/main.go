@@ -1,3 +1,4 @@
+
 package main
 
 import (
@@ -7,13 +8,6 @@ import (
 	"strconv"
 	"strings"
 )
-
-// Command and their actions
-var commands = map[string]func(args []string){
-	"exit": handleExit,
-	"echo": handleEcho,
-	"type": handleType,
-}
 
 // Terminates with code/status 0.
 func handleExit(args []string) {
@@ -36,7 +30,7 @@ func handleEcho(args []string) {
 }
 
 // Type command checks for builtin commands and unrecognized commands 
-func handleType(args []string) {
+func handleType(args []string, commands map[string]func([]string)) {
 	if len(args) == 0 {
 		fmt.Println("type: missing argument")
 		return
@@ -45,7 +39,7 @@ func handleType(args []string) {
 	command := args[0]
 	var msg string
 
-	if checkCommand(command) {
+	if checkCommand(command, commands) {
 		msg = fmt.Sprintf("%s is a shell builtin", command)
 	} else {
 		msg = fmt.Sprintf("%s: not found", command)
@@ -72,7 +66,7 @@ func readCommandAndArgs() (string, []string, error) {
 }
 
 // If command exists, executes command, else returns error
-func executeCommand(command string, args []string) {
+func executeCommand(command string, args []string, commands map[string]func([]string)) {
 	if action, exists := commands[command]; exists {
 		action(args)
 	} else {
@@ -80,12 +74,18 @@ func executeCommand(command string, args []string) {
 	}
 }
 
-func checkCommand(command string) bool {
+func checkCommand(command string, commands map[string]func([]string)) bool {
 	_, exists := commands[command]
 	return exists
 }
 
 func main() {
+	commands := map[string]func([]string){
+		"exit": handleExit,
+		"echo": handleEcho,
+		"type": func(args []string) { handleType(args, commands) },
+	}
+
 	for {
 		command, args, err := readCommandAndArgs()
 		if err != nil {
@@ -95,6 +95,6 @@ func main() {
 		if command == "" {
 			continue
 		}
-		executeCommand(command, args)
+		executeCommand(command, args, commands)
 	}
 }
