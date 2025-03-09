@@ -32,36 +32,42 @@ func handleExit(args []string) {
 // Echo command prints the provided text back.
 func handleEcho(args []string) {
 	msg := strings.Join(args, " ")
-	fmt.Fprintln(os.Stdout, msg)
+	fmt.Println(msg)
 }
 
-// Type command check for builtin commands and unrecognized commands 
-func handleType(args []string) { 
-	command := args[0]
+// Type command checks for builtin commands and unrecognized commands 
+func handleType(args []string) {
+	if len(args) == 0 {
+		fmt.Println("type: missing argument")
+		return
+	}
 
-	msg := ""
+	command := args[0]
+	var msg string
 
 	if checkCommand(command) {
-		msg = fmt.Sprintf("%s is a shell bulidin", command)
+		msg = fmt.Sprintf("%s is a shell builtin", command)
 	} else {
-		msg = fmt.Sprintf("%s: not found ", command)
+		msg = fmt.Sprintf("%s: not found", command)
 	}
-	
-	fmt.Fprintln(os.Stdout, msg)
-} 
+
+	fmt.Println(msg)
+}
 
 // Reads and returns inserted user commands
 func readCommandAndArgs() (string, []string, error) {
-	fmt.Fprint(os.Stdout, "$ ")
+	fmt.Print("$ ")
 	scanner := bufio.NewScanner(os.Stdin)
 	if !scanner.Scan() {
 		return "", nil, scanner.Err()
 	}
+
 	trimmed := strings.TrimSpace(scanner.Text())
 	splitted := strings.Fields(trimmed)
 	if len(splitted) == 0 {
 		return "", nil, nil
 	}
+
 	return splitted[0], splitted[1:], nil
 }
 
