@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 )
@@ -70,6 +71,8 @@ func handleType(args []string, registry *CommandRegistry) {
 
 	if registry.Exists(command) {
 		msg = fmt.Sprintf("%s is a shell builtin", command)
+	} else if path, err := exec.LookPath(command); err == nil {
+		msg = fmt.Sprintf("%s is %s\n", command, path)
 	} else {
 		msg = fmt.Sprintf("%s: not found", command)
 	}
