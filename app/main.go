@@ -7,7 +7,6 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
-    "path/filepath"
 )
 
 // CommandRegistry zarządza rejestracją i wykonywaniem komend
