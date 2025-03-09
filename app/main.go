@@ -1,4 +1,3 @@
-
 package main
 
 import (
@@ -9,7 +8,37 @@ import (
 	"strings"
 )
 
-// Terminates with code/status 0.
+// CommandRegistry zarządza rejestracją i wykonywaniem komend
+type CommandRegistry struct {
+	commands map[string]func([]string)
+}
+
+// Nowy rejestr komend
+func NewCommandRegistry() *CommandRegistry {
+	return &CommandRegistry{commands: make(map[string]func([]string))}
+}
+
+// Rejestracja nowej komendy
+func (cr *CommandRegistry) Register(name string, handler func([]string)) {
+	cr.commands[name] = handler
+}
+
+// Wykonanie komendy
+func (cr *CommandRegistry) Execute(command string, args []string) {
+	if action, exists := cr.commands[command]; exists {
+		action(args)
+	} else {
+		fmt.Printf("%s: command not found\n", command)
+	}
+}
+
+// Sprawdzenie, czy komenda istnieje
+func (cr *CommandRegistry) Exists(command string) bool {
+	_, exists := cr.commands[command]
+	return exists
+}
+
+// Obsługuje wyjście z programu
 func handleExit(args []string) {
 	if len(args) > 0 {
 		exitCode, err := strconv.Atoi(args[0])
@@ -23,14 +52,14 @@ func handleExit(args []string) {
 	}
 }
 
-// Echo command prints the provided text back.
+// Obsługuje polecenie echo
 func handleEcho(args []string) {
 	msg := strings.Join(args, " ")
 	fmt.Println(msg)
 }
 
-// Type command checks for builtin commands and unrecognized commands 
-func handleType(args []string, commands map[string]func([]string)) {
+// Obsługuje polecenie type
+func handleType(args []string, registry *CommandRegistry) {
 	if len(args) == 0 {
 		fmt.Println("type: missing argument")
 		return
@@ -39,7 +68,7 @@ func handleType(args []string, commands map[string]func([]string)) {
 	command := args[0]
 	var msg string
 
-	if checkCommand(command, commands) {
+	if registry.Exists(command) {
 		msg = fmt.Sprintf("%s is a shell builtin", command)
 	} else {
 		msg = fmt.Sprintf("%s: not found", command)
@@ -48,7 +77,7 @@ func handleType(args []string, commands map[string]func([]string)) {
 	fmt.Println(msg)
 }
 
-// Reads and returns inserted user commands
+// Wczytuje i zwraca komendę użytkownika
 func readCommandAndArgs() (string, []string, error) {
 	fmt.Print("$ ")
 	scanner := bufio.NewScanner(os.Stdin)
@@ -65,26 +94,12 @@ func readCommandAndArgs() (string, []string, error) {
 	return splitted[0], splitted[1:], nil
 }
 
-// If command exists, executes command, else returns error
-func executeCommand(command string, args []string, commands map[string]func([]string)) {
-	if action, exists := commands[command]; exists {
-		action(args)
-	} else {
-		fmt.Printf("%s: command not found\n", command)
-	}
-}
-
-func checkCommand(command string, commands map[string]func([]string)) bool {
-	_, exists := commands[command]
-	return exists
-}
-
 func main() {
-	commands := map[string]func([]string){
-		"exit": handleExit,
-		"echo": handleEcho,
-		"type": func(args []string) { handleType(args, commands) },
-	}
+	registry := NewCommandRegistry()
+
+	registry.Register("exit", handleExit)
+	registry.Register("echo", handleEcho)
+	registry.Register("type", func(args []string) { handleType(args, registry) })
 
 	for {
 		command, args, err := readCommandAndArgs()
@@ -95,6 +110,6 @@ func main() {
 		if command == "" {
 			continue
 		}
-		executeCommand(command, args, commands)
+		registry.Execute(command, args)
 	}
 }
