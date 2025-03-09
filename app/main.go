@@ -84,9 +84,9 @@ func handleType(args []string, registry *CommandRegistry) {
 func readCommandAndArgs() (string, []string, error) {
 	fmt.Print("$ ")
 	scanner := bufio.NewScanner(os.Stdin)
-	if !scanner.Scan() {
-		return "", nil, scanner.Err()
-	}
+//	if !scanner.Scan() {
+//		return "", nil, scanner.Err()
+//	}
 
 	trimmed := strings.TrimSpace(scanner.Text())
 	splitted := strings.Fields(trimmed)
