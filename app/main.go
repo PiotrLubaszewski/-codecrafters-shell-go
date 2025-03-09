@@ -38,6 +38,8 @@ func (cr *CommandRegistry) Register(name string, handler func([]string)) {
 func (cr *CommandRegistry) Execute(command string, args []string) {
 	if action, exists := cr.commands[command]; exists {
 		action(args)
+	}  else if out, err := exec.Command(command, args...).Output(); err == nil {
+		fmt.Print(string(out))
 	} else {
 		fmt.Printf("%s: command not found\n", command)
 	}
