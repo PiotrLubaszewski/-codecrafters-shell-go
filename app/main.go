@@ -121,12 +121,11 @@ func (s *Shell) readCommandAndArgs() (string, []string, error) {
 
 // Wypisuje ścieżkę 
 func handlePwd(args []string) {
-	ex, err := os.Executable()
-    if err != nil {
-        panic(err)
-    }
-    exPath := filepath.Dir(ex)
-    fmt.Println(exPath)
+	path, err := os.Getwd()
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(path) 
 }
 
 // Uruchamia pętlę shella
