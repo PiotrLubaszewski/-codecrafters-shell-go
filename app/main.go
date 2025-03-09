@@ -11,18 +11,40 @@ import (
 var _ = fmt.Fprint
 
 // Command and their actions
-var commands = map[string]func()  {
-	"exit 0": func () { os.Exit(0) }, 
+var commands = map[string]func(args []string)  {
+	"exit": handleExit, 
+	"echo": handleEcho, 
+}
+
+// Terminates with code/status 0.
+func handleExit(args) {
+	if len(args) > 1 {
+		exit_code, err := strconv.Atoi(args[1])
+		if err != nil {
+			fmt.Println("Invalid exit code")
+			return
+		}
+		os.Exit(exit_code)
+	}
+	return
+}
+
+// Echo command prints the provided text back.
+func handleEcho(input string) {
+	msg := strings.Join(input, " ")
+	fmt.Fprintln(os.Std, msg)
 }
 
 // Reads and returns inserted user commands
-func readCommand() (string, error) {
+func readCommandAndArgs() (string, []string, error) {
 	fmt.Fprint(os.Stdout, "$ ")
 	scanner := bufio.NewScanner(os.Stdin)
 	if !scanner.Scan() {
 		return "", scanner.Err()
 	}
-	return strings.TrimSpace(scanner.Text()), nil
+	trimed := strings.TrimSpace(scanner.Text())
+	splited := strings.Split(trimed, " ")
+	return splitted[0], args[1:], nil
 }
 
 // If command exists, executes command, else returns error
@@ -37,11 +59,11 @@ func executeCommand(command string) {
 func main() {
 	// Uncomment this block to pass the first stag
 	for {
-		command, err := readCommand()
+		command, args, err := readCommand()
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "Error reading input:", err)
 			os.Exit(1)
 		}
-		executeCommand(command)
+		executeCommand(command, args)
 	}
 }
