@@ -1,4 +1,3 @@
-
 package main
 
 import (
@@ -15,89 +14,61 @@ type CommandRegistry struct {
 	commands map[string]func([]string)
 }
 
-// Nowy rejestr komend
+// NewCommandRegistry tworzy nowy rejestr komend
 func NewCommandRegistry() *CommandRegistry {
 	return &CommandRegistry{commands: make(map[string]func([]string))}
 }
 
-// Inicjalizacja rejestru komend
-func InitializeRegistry() *CommandRegistry {
-	registry := NewCommandRegistry()
-	registry.Register("exit", handleExit)
-	registry.Register("echo", handleEcho)
-	registry.Register("type", func(args []string) { handleType(args, registry) })
-	return registry
-}
-
-// Rejestracja nowej komendy
+// Register dodaje komendę do rejestru
 func (cr *CommandRegistry) Register(name string, handler func([]string)) {
 	cr.commands[name] = handler
 }
 
-// Wykonanie komendy
+// Execute wykonuje komendę z rejestru lub jako polecenie zewnętrzne
 func (cr *CommandRegistry) Execute(command string, args []string) {
 	if action, exists := cr.commands[command]; exists {
 		action(args)
-	}  else if out, err := exec.Command(command, args...).Output(); err == nil {
-		fmt.Print(string(out))
 	} else {
+		cr.executeExternal(command, args)
+	}
+}
+
+// executeExternal wykonuje komendę zewnętrzną, jeśli nie jest w rejestrze
+func (cr *CommandRegistry) executeExternal(command string, args []string) {
+	out, err := exec.Command(command, args...).Output()
+	if err != nil {
 		fmt.Printf("%s: command not found\n", command)
-	}
-}
-
-// Sprawdzenie, czy komenda istnieje
-func (cr *CommandRegistry) Exists(command string) bool {
-	_, exists := cr.commands[command]
-	return exists
-}
-
-// Obsługuje wyjście z programu
-func handleExit(args []string) {
-	exitCode := 0
-	if len(args) > 0 {
-		var err error
-		exitCode, err = strconv.Atoi(args[0])
-		if err != nil {
-			fmt.Println("Invalid exit code")
-			return
-		}
-	}
-	os.Exit(exitCode)
-}
-
-// Obsługuje polecenie echo
-func handleEcho(args []string) {
-	fmt.Println(strings.Join(args, " "))
-}
-
-// Obsługuje polecenie type
-func handleType(args []string, registry *CommandRegistry) {
-	if len(args) == 0 {
-		fmt.Println("type: missing argument")
 		return
 	}
-
-	command := args[0]
-	if registry.Exists(command) {
-		fmt.Printf("%s is a shell builtin\n", command)
-	} else if path, err := exec.LookPath(command); err == nil {
-		fmt.Printf("%s is %s\n", command, path)
-	} else {
-		fmt.Printf("%s: not found\n", command)
-	}
+	fmt.Print(string(out))
 }
 
-// Zarządza interakcją z użytkownikiem
+// Shell reprezentuje powłokę z rejestrem komend
 type Shell struct {
 	registry *CommandRegistry
 }
 
-// Nowa instancja shella
+// NewShell tworzy nową instancję powłoki
 func NewShell(registry *CommandRegistry) *Shell {
 	return &Shell{registry: registry}
 }
 
-// Wczytuje i zwraca komendę użytkownika
+// Run uruchamia pętlę shella
+func (s *Shell) Run() {
+	for {
+		command, args, err := s.readCommandAndArgs()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "Error reading input:", err)
+			os.Exit(1)
+		}
+		if command == "" {
+			continue
+		}
+		s.registry.Execute(command, args)
+	}
+}
+
+// readCommandAndArgs wczytuje i zwraca komendę użytkownika
 func (s *Shell) readCommandAndArgs() (string, []string, error) {
 	fmt.Print("$ ")
 	scanner := bufio.NewScanner(os.Stdin)
@@ -118,19 +89,47 @@ func (s *Shell) readCommandAndArgs() (string, []string, error) {
 	return splitted[0], splitted[1:], nil
 }
 
-// Uruchamia pętlę shella
-func (s *Shell) Run() {
-	for {
-		command, args, err := s.readCommandAndArgs()
+// handleExit obsługuje wyjście z programu
+func handleExit(args []string) {
+	exitCode := 0
+	if len(args) > 0 {
+		var err error
+		exitCode, err = strconv.Atoi(args[0])
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "Error reading input:", err)
-			os.Exit(1)
+			fmt.Println("Invalid exit code")
+			return
 		}
-		if command == "" {
-			continue
-		}
-		s.registry.Execute(command, args)
 	}
+	os.Exit(exitCode)
+}
+
+// handleEcho obsługuje polecenie echo
+func handleEcho(args []string) {
+	fmt.Println(strings.Join(args, " "))
+}
+
+// handleType obsługuje polecenie type
+func handleType(args []string) {
+	if len(args) == 0 {
+		fmt.Println("type: missing argument")
+		return
+	}
+
+	command := args[0]
+	if path, err := exec.LookPath(command); err == nil {
+		fmt.Printf("%s is %s\n", command, path)
+	} else {
+		fmt.Printf("%s: not found\n", command)
+	}
+}
+
+// InitializeRegistry tworzy i inicjalizuje rejestr komend
+func InitializeRegistry() *CommandRegistry {
+	registry := NewCommandRegistry()
+	registry.Register("exit", handleExit)
+	registry.Register("echo", handleEcho)
+	registry.Register("type", handleType)
+	return registry
 }
 
 func main() {
