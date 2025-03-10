@@ -26,6 +26,7 @@ func InitializeRegistry() *CommandRegistry {
 	registry.Register("echo", handleEcho)
 	registry.Register("type", func(args []string) { handleType(args, registry) })
 	registry.Register("pwd", handlePwd)
+	registry.Register("cd", handleCd)
 	return registry
 }
 
@@ -38,7 +39,7 @@ func (cr *CommandRegistry) Register(name string, handler func([]string)) {
 func (cr *CommandRegistry) Execute(command string, args []string) {
 	if action, exists := cr.commands[command]; exists {
 		action(args)
-	}  else if out, err := exec.Command(command, args...).Output(); err == nil {
+	} else if out, err := exec.Command(command, args...).Output(); err == nil {
 		fmt.Print(string(out))
 	} else {
 		fmt.Printf("%s: command not found\n", command)
@@ -118,13 +119,22 @@ func (s *Shell) readCommandAndArgs() (string, []string, error) {
 	return splitted[0], splitted[1:], nil
 }
 
-// Wypisuje ścieżkę 
+// Wypisuje ścieżkę
 func handlePwd(args []string) {
 	path, err := os.Getwd()
 	if err != nil {
 		fmt.Println(err)
 	}
-	fmt.Println(path) 
+	fmt.Println(path)
+}
+
+// Zmienia katalog roboczy
+func handleCd(args []string) {
+	if len(args) != 1 {
+		fmt.Println("String not in pwd: $s", strings.Join(args, " "))
+	}
+
+	os.Chdir(args[0])
 }
 
 // Uruchamia pętlę shella
