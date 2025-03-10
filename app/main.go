@@ -134,7 +134,11 @@ func handleCd(args []string) {
 		fmt.Println("String not in pwd: $s", strings.Join(args, " "))
 	}
 
-	os.Chdir(args[0])
+	path := args[0]
+
+	if err := os.Chdir(path); err != nil {
+		fmt.Fprintf(os.Stdout, "%s: No such file or directory\n", path)
+	}
 }
 
 // Uruchamia pętlę shella
