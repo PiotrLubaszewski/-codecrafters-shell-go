@@ -9,17 +9,17 @@ import (
 	"strings"
 )
 
-// CommandRegistry zarządza rejestracją i wykonywaniem komend
+// CommandRegistry manages registering commands
 type CommandRegistry struct {
 	commands map[string]func([]string)
 }
 
-// Nowy rejestr komend
+// Creates new Command Registry
 func NewCommandRegistry() *CommandRegistry {
 	return &CommandRegistry{commands: make(map[string]func([]string))}
 }
 
-// Inicjalizacja rejestru komend
+// Initializes Command Registry with initial (builtin) values
 func InitializeRegistry() *CommandRegistry {
 	registry := NewCommandRegistry()
 	registry.Register("exit", handleExit)
@@ -30,12 +30,12 @@ func InitializeRegistry() *CommandRegistry {
 	return registry
 }
 
-// Rejestracja nowej komendy
+// Adds new command to Command Registry
 func (cr *CommandRegistry) Register(name string, handler func([]string)) {
 	cr.commands[name] = handler
 }
 
-// Wykonanie komendy
+// Executes command with given args
 func (cr *CommandRegistry) Execute(command string, args []string) {
 	if action, exists := cr.commands[command]; exists {
 		action(args)
@@ -46,13 +46,13 @@ func (cr *CommandRegistry) Execute(command string, args []string) {
 	}
 }
 
-// Sprawdzenie, czy komenda istnieje
+// Checks if command exists in registry
 func (cr *CommandRegistry) Exists(command string) bool {
 	_, exists := cr.commands[command]
 	return exists
 }
 
-// Obsługuje wyjście z programu
+// Exits shell
 func handleExit(args []string) {
 	exitCode := 0
 	if len(args) > 0 {
@@ -66,12 +66,12 @@ func handleExit(args []string) {
 	os.Exit(exitCode)
 }
 
-// Obsługuje polecenie echo
+// Prints provided text to output
 func handleEcho(args []string) {
 	fmt.Println(strings.Join(args, " "))
 }
 
-// Obsługuje polecenie type
+// Prints if command is builtin, PATH-vide, or not found
 func handleType(args []string, registry *CommandRegistry) {
 	if len(args) == 0 {
 		fmt.Println("type: missing argument")
@@ -88,19 +88,20 @@ func handleType(args []string, registry *CommandRegistry) {
 	}
 }
 
-// Zarządza interakcją z użytkownikiem
+// Manages Contatct with user
 type Shell struct {
 	registry *CommandRegistry
 }
 
-// Nowa instancja shella
+// Creates new shell instance
 func NewShell(registry *CommandRegistry) *Shell {
 	return &Shell{registry: registry}
 }
 
-// Wczytuje i zwraca komendę użytkownika
+// Reads command and args from user input
 func (s *Shell) readCommandAndArgs() (string, []string, error) {
 	fmt.Print("$ ")
+
 	scanner := bufio.NewScanner(os.Stdin)
 	if !scanner.Scan() {
 		if err := scanner.Err(); err != nil {
@@ -119,7 +120,7 @@ func (s *Shell) readCommandAndArgs() (string, []string, error) {
 	return splitted[0], splitted[1:], nil
 }
 
-// Wypisuje ścieżkę
+// Prints current working directory
 func handlePwd(args []string) {
 	path, err := os.Getwd()
 	if err != nil {
@@ -128,7 +129,7 @@ func handlePwd(args []string) {
 	fmt.Println(path)
 }
 
-// Zmienia katalog roboczy
+// Changes working direcotory
 func handleCd(args []string) {
 	if len(args) != 1 {
 		fmt.Println("String not in pwd: $s", strings.Join(args, " "))
@@ -136,12 +137,16 @@ func handleCd(args []string) {
 
 	path := args[0]
 
+	if strings.TrimSpace(path) == "~" {
+		path = os.Getenv("HOME")
+	}
+
 	if err := os.Chdir(path); err != nil {
 		fmt.Fprintf(os.Stdout, "%s: No such file or directory\n", path)
 	}
 }
 
-// Uruchamia pętlę shella
+// Executes Shell
 func (s *Shell) Run() {
 	for {
 		command, args, err := s.readCommandAndArgs()
