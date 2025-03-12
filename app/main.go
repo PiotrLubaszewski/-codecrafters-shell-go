@@ -112,7 +112,22 @@ func (s *Shell) readCommandAndArgs() (string, []string, error) {
 	}
 
 	trimmed := strings.TrimSpace(scanner.Text())
-	splitted := strings.Fields(trimmed)
+
+	var splitted []string
+	for {
+		start := strings.Index(trimmed, "'")
+		if start == -1 {
+			splitted = append(splitted, strings.Fields(trimmed)...)
+			break
+		}
+		splitted = append(splitted, strings.Fields(trimmed[:start])...)
+		trimmed = trimmed[start+1:]
+		end := strings.Index(trimmed, "'")
+		token := trimmed[:end]
+		splitted = append(splitted, token)
+		trimmed = trimmed[end+1:]
+	}
+
 	if len(splitted) == 0 {
 		return "", nil, nil
 	}
