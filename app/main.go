@@ -111,37 +111,43 @@ func (s *Shell) readCommandAndArgs() (string, []string, error) {
 		os.Exit(0)
 	}
 
-	trimmed := strings.Trim(scanner.Text(), "\r\n")
+	input := scanner.Text()
+	var args []string
+	var current strings.Builder
+	inQuote := false
 
-	var splitted []string
-	for {
-		start := strings.Index(trimmed, "'")
-		if start == -1 {
-			splitted = append(splitted, strings.Fields(trimmed)...)
-			break
+	for i := 0; i < len(input); i++ {
+		ch := input[i]
+
+		if ch == '\'' {
+			if inQuote {
+				inQuote = false
+			} else {
+				inQuote = true
+			}
+			continue
 		}
-		splitted = append(splitted, strings.Fields(trimmed[:start])...)
-		trimmed = trimmed[start+1:]
-		end := strings.Index(trimmed, "'")
-		token := trimmed[:end]
-		splitted = append(splitted, token)
-		trimmed = trimmed[end+1:]
+
+		if ch == ' ' && !inQuote {
+			if current.Len() > 0 {
+				args = append(args, current.String())
+				current.Reset()
+			}
+			continue
+		}
+
+		current.WriteByte(ch)
 	}
 
-	if len(splitted) == 0 {
+	if current.Len() > 0 {
+		args = append(args, current.String())
+	}
+
+	if len(args) == 0 {
 		return "", nil, nil
 	}
 
-	return splitted[0], splitted[1:], nil
-}
-
-// Prints current working directory
-func handlePwd(args []string) {
-	path, err := os.Getwd()
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Println(path)
+	return args[0], args[1:], nil
 }
 
 // Changes working direcotory
