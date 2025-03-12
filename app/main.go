@@ -111,7 +111,7 @@ func (s *Shell) readCommandAndArgs() (string, []string, error) {
 		os.Exit(0)
 	}
 
-	trimmed := strings.TrimSpace(scanner.Text())
+	trimmed := strings.Trim(scanner.Text(), "\r\n")
 
 	var splitted []string
 	for {
