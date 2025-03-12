@@ -150,6 +150,15 @@ func (s *Shell) readCommandAndArgs() (string, []string, error) {
 	return args[0], args[1:], nil
 }
 
+// Prints current working directory
+func handlePwd(args []string) {
+	path, err := os.Getwd()
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(path)
+}
+
 // Changes working direcotory
 func handleCd(args []string) {
 	if len(args) != 1 {
