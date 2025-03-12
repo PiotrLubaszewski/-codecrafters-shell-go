@@ -9,17 +9,48 @@ import (
 	"strings"
 )
 
-// CommandRegistry manages registering commands
+// CommandRegistry manages registering and executing commands
 type CommandRegistry struct {
 	commands map[string]func([]string)
 }
 
-// Creates new Command Registry
+// NewCommandRegistry creates a new command registry
 func NewCommandRegistry() *CommandRegistry {
 	return &CommandRegistry{commands: make(map[string]func([]string))}
 }
 
-// Initializes Command Registry with initial (builtin) values
+// Register adds a new command to the registry
+func (cr *CommandRegistry) Register(name string, handler func([]string)) {
+	cr.commands[name] = handler
+}
+
+// Execute runs a command with the given arguments
+func (cr *CommandRegistry) Execute(command string, args []string) {
+	if handler, exists := cr.commands[command]; exists {
+		handler(args)
+	} else {
+		cr.runExternalCommand(command, args)
+	}
+}
+
+// runExternalCommand attempts to execute a system command
+func (cr *CommandRegistry) runExternalCommand(command string, args []string) {
+	cmd := exec.Command(command, args...)
+	output, err := cmd.Output()
+	if err != nil {
+		fmt.Printf("%s: command not found\n", command)
+		return
+	}
+	fmt.Print(string(output))
+}
+
+// Exists checks if a command is registered
+func (cr *CommandRegistry) Exists(command string) bool {
+	_, exists := cr.commands[command]
+	return exists
+}
+
+// InitializeRegistry sets up built-in commands
 func InitializeRegistry() *CommandRegistry {
 	registry := NewCommandRegistry()
 	registry.Register("exit", handleExit)
@@ -30,35 +61,83 @@ func InitializeRegistry() *CommandRegistry {
 	return registry
 }
 
-// Adds new command to Command Registry
-func (cr *CommandRegistry) Register(name string, handler func([]string)) {
-	cr.commands[name] = handler
+// Shell handles user interaction
+type Shell struct {
+	registry *CommandRegistry
 }
 
-// Executes command with given args
-func (cr *CommandRegistry) Execute(command string, args []string) {
-	if action, exists := cr.commands[command]; exists {
-		action(args)
-	} else if out, err := exec.Command(command, args...).Output(); err == nil {
-		fmt.Print(string(out))
-	} else {
-		fmt.Printf("%s: command not found\n", command)
+// NewShell creates a new shell instance
+func NewShell(registry *CommandRegistry) *Shell {
+	return &Shell{registry: registry}
+}
+
+// Run starts the shell loop
+func (s *Shell) Run() {
+	for {
+		command, args, err := s.readCommandAndArgs()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "Error reading input:", err)
+			continue
+		}
+		if command == "" {
+			continue
+		}
+		s.registry.Execute(command, args)
 	}
 }
 
-// Checks if command exists in registry
-func (cr *CommandRegistry) Exists(command string) bool {
-	_, exists := cr.commands[command]
-	return exists
+// readCommandAndArgs reads and parses user input
+func (s *Shell) readCommandAndArgs() (string, []string, error) {
+	fmt.Print("$ ")
+	scanner := bufio.NewScanner(os.Stdin)
+	if !scanner.Scan() {
+		if err := scanner.Err(); err != nil {
+			return "", nil, err
+		}
+		fmt.Println("\nExit")
+		os.Exit(0)
+	}
+
+	args := parseArgs(scanner.Text())
+	if len(args) == 0 {
+		return "", nil, nil
+	}
+	return args[0], args[1:], nil
 }
 
-// Exits shell
+// parseArgs handles quoted arguments properly
+func parseArgs(input string) []string {
+	var args []string
+	var current strings.Builder
+	inQuote := false
+
+	for i := 0; i < len(input); i++ {
+		ch := input[i]
+		switch {
+		case ch == '\'':
+			inQuote = !inQuote
+		case ch == ' ' && !inQuote:
+			if current.Len() > 0 {
+				args = append(args, current.String())
+				current.Reset()
+			}
+		default:
+			current.WriteByte(ch)
+		}
+	}
+	if current.Len() > 0 {
+		args = append(args, current.String())
+	}
+	return args
+}
+
+// handleExit terminates the shell
 func handleExit(args []string) {
 	exitCode := 0
 	if len(args) > 0 {
-		var err error
-		exitCode, err = strconv.Atoi(args[0])
-		if err != nil {
+		if code, err := strconv.Atoi(args[0]); err == nil {
+			exitCode = code
+		} else {
 			fmt.Println("Invalid exit code")
 			return
 		}
@@ -66,12 +145,12 @@ func handleExit(args []string) {
 	os.Exit(exitCode)
 }
 
-// Prints provided text to output
+// handleEcho prints the provided text
 func handleEcho(args []string) {
 	fmt.Println(strings.Join(args, " "))
 }
 
-// Prints if command is builtin, PATH-vide, or not found
+// handleType checks if a command is built-in or in PATH
 func handleType(args []string, registry *CommandRegistry) {
 	if len(args) == 0 {
 		fmt.Println("type: missing argument")
@@ -88,106 +167,29 @@ func handleType(args []string, registry *CommandRegistry) {
 	}
 }
 
-// Manages Contatct with user
-type Shell struct {
-	registry *CommandRegistry
-}
-
-// Creates new shell instance
-func NewShell(registry *CommandRegistry) *Shell {
-	return &Shell{registry: registry}
-}
-
-// Reads command and args from user input
-func (s *Shell) readCommandAndArgs() (string, []string, error) {
-	fmt.Print("$ ")
-
-	scanner := bufio.NewScanner(os.Stdin)
-	if !scanner.Scan() {
-		if err := scanner.Err(); err != nil {
-			return "", nil, err
-		}
-		fmt.Println("\nExit")
-		os.Exit(0)
-	}
-
-	input := scanner.Text()
-	var args []string
-	var current strings.Builder
-	inQuote := false
-
-	for i := 0; i < len(input); i++ {
-		ch := input[i]
-
-		if ch == '\'' {
-			if inQuote {
-				inQuote = false
-			} else {
-				inQuote = true
-			}
-			continue
-		}
-
-		if ch == ' ' && !inQuote {
-			if current.Len() > 0 {
-				args = append(args, current.String())
-				current.Reset()
-			}
-			continue
-		}
-
-		current.WriteByte(ch)
-	}
-
-	if current.Len() > 0 {
-		args = append(args, current.String())
-	}
-
-	if len(args) == 0 {
-		return "", nil, nil
-	}
-
-	return args[0], args[1:], nil
-}
-
-// Prints current working directory
+// handlePwd prints the current working directory
 func handlePwd(args []string) {
-	path, err := os.Getwd()
-	if err != nil {
+	if path, err := os.Getwd(); err == nil {
+		fmt.Println(path)
+	} else {
 		fmt.Println(err)
 	}
-	fmt.Println(path)
 }
 
-// Changes working direcotory
+// handleCd changes the working directory
 func handleCd(args []string) {
 	if len(args) != 1 {
-		fmt.Println("String not in pwd: $s", strings.Join(args, " "))
+		fmt.Println("Usage: cd <directory>")
+		return
 	}
 
 	path := args[0]
-
-	if strings.TrimSpace(path) == "~" {
+	if path == "~" {
 		path = os.Getenv("HOME")
 	}
 
 	if err := os.Chdir(path); err != nil {
-		fmt.Fprintf(os.Stdout, "%s: No such file or directory\n", path)
-	}
-}
-
-// Executes Shell
-func (s *Shell) Run() {
-	for {
-		command, args, err := s.readCommandAndArgs()
-		if err != nil {
-			fmt.Fprintln(os.Stderr, "Error reading input:", err)
-			os.Exit(1)
-		}
-		if command == "" {
-			continue
-		}
-		s.registry.Execute(command, args)
+		fmt.Fprintf(os.Stderr, "%s: No such file or directory\n", path)
 	}
 }
 
