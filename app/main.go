@@ -109,14 +109,28 @@ func (s *Shell) readCommandAndArgs() (string, []string, error) {
 func parseArgs(input string) []string {
 	var args []string
 	var current strings.Builder
-	inQuote := false
-
-	for i := 0; i < len(input); i++ {
+	inSingleQuote := false
+	inDoubleQuote := false
+	i := 0
+	for i < len(input) {
 		ch := input[i]
 		switch {
+		case ch == '\\' && i+1 < len(input):
+			i++
+			current.WriteByte(input[i])
 		case ch == '\'':
-			inQuote = !inQuote
-		case ch == ' ' && !inQuote:
+			if !inDoubleQuote {
+				inSingleQuote = !inSingleQuote
+			} else {
+				current.WriteByte(ch)
+			}
+		case ch == '"':
+			if !inSingleQuote {
+				inDoubleQuote = !inDoubleQuote
+			} else {
+				current.WriteByte(ch)
+			}
+		case ch == ' ' && !inSingleQuote && !inDoubleQuote:
 			if current.Len() > 0 {
 				args = append(args, current.String())
 				current.Reset()
@@ -124,6 +138,7 @@ func parseArgs(input string) []string {
 		default:
 			current.WriteByte(ch)
 		}
+		i++
 	}
 	if current.Len() > 0 {
 		args = append(args, current.String())
