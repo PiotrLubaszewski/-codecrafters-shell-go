@@ -98,52 +98,91 @@ func (s *Shell) readCommandAndArgs() (string, []string, error) {
 		os.Exit(0)
 	}
 
-	args := parseArgs(scanner.Text())
+	args := ParseArgs(scanner.Text())
 	if len(args) == 0 {
 		return "", nil, nil
 	}
 	return args[0], args[1:], nil
 }
 
-// parseArgs handles quoted arguments properly
-func parseArgs(input string) []string {
-	var args []string
-	var current strings.Builder
-	inSingleQuote := false
-	inDoubleQuote := false
-	i := 0
-	for i < len(input) {
-		ch := input[i]
-		switch {
-		case ch == '\\' && i+1 < len(input):
-			i++
-			current.WriteByte(input[i])
-		case ch == '\'':
-			if !inDoubleQuote {
-				inSingleQuote = !inSingleQuote
-			} else {
-				current.WriteByte(ch)
-			}
-		case ch == '"':
-			if !inSingleQuote {
-				inDoubleQuote = !inDoubleQuote
-			} else {
-				current.WriteByte(ch)
-			}
-		case ch == ' ' && !inSingleQuote && !inDoubleQuote:
-			if current.Len() > 0 {
-				args = append(args, current.String())
-				current.Reset()
-			}
-		default:
-			current.WriteByte(ch)
-		}
-		i++
+// Parser is responsible for parsing input arguments
+// It adheres to the Single Responsibility Principle by focusing solely on parsing
+// and not handling execution logic or external dependencies.
+type Parser struct {
+	input    string
+	args     []string
+	current  strings.Builder
+	stack    []rune
+	escaped  bool
+	handlers map[rune]func(*Parser)
+}
+
+// NewParser creates a new instance of the parser
+// This follows the Open/Closed Principle by allowing extension without modification.
+func NewParser(input string) *Parser {
+	parser := &Parser{input: input}
+	parser.handlers = map[rune]func(*Parser){
+		'\\': func(p *Parser) { p.escaped = true },
+		'\'': func(p *Parser) { p.toggleQuote('\'') },
+		'"':  func(p *Parser) { p.toggleQuote('"') },
+		' ':  func(p *Parser) { p.handleSpace() },
 	}
-	if current.Len() > 0 {
-		args = append(args, current.String())
+	return parser
+}
+
+// Parse executes the parsing operation
+func (p *Parser) Parse() []string {
+	for i := 0; i < len(p.input); i++ {
+		p.processRune(rune(p.input[i]))
 	}
-	return args
+	p.addCurrentArg()
+	return p.args
+}
+
+// processRune processes a single input character
+// This method ensures the correct sequence of parsing operations.
+func (p *Parser) processRune(ch rune) {
+	if p.escaped {
+		p.current.WriteRune(ch)
+		p.escaped = false
+		return
+	}
+
+	if handler, exists := p.handlers[ch]; exists {
+		handler(p)
+	} else {
+		p.current.WriteRune(ch)
+	}
+}
+
+// toggleQuote manages opening and closing quotes
+func (p *Parser) toggleQuote(ch rune) {
+	if len(p.stack) > 0 && p.stack[len(p.stack)-1] == ch {
+		p.stack = p.stack[:len(p.stack)-1]
+	} else {
+		p.stack = append(p.stack, ch)
+	}
+}
+
+// handleSpace handles argument separation
+func (p *Parser) handleSpace() {
+	if len(p.stack) == 0 && p.current.Len() > 0 {
+		p.addCurrentArg()
+	}
+}
+
+// addCurrentArg adds the current argument to the list
+func (p *Parser) addCurrentArg() {
+	if p.current.Len() > 0 {
+		p.args = append(p.args, p.current.String())
+		p.current.Reset()
+	}
+}
+
+// ParseArgs is a helper function for ease of use
+func ParseArgs(input string) []string {
+	parser := NewParser(input)
+	return parser.Parse()
 }
 
 // handleExit terminates the shell
